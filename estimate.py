@@ -29,12 +29,12 @@ cap = cv2.VideoCapture(CAMERA_NUMBER)
 camera_matrix = np.load(f"{MATRIX_DIR}camera_matrix.npy")
 dist_coeffs = np.load(f"{MATRIX_DIR}dist_coeffs.npy")
 
-# # Load rotation (R) and translation (T) matrices
-# R = np.load(f"{MATRIX_DIR}R.npy")  # 3x3 rotation matrix
-# T = np.load(f"{MATRIX_DIR}T.npy")  # 3x1 translation vector
 
 
-T_base_camera = np.load(f"{MATRIX_DIR}T_base_camera.npy")
+# Load rotation and translation vectors
+if not os.path.exists(f"{MATRIX_DIR}rvec.npy") or not os.path.exists(f"{MATRIX_DIR}tvec.npy"):
+    print("Error: Rotation and translation vectors not found. Please run calibrate.py first.")
+    exit()
 rvec = np.load(f"{MATRIX_DIR}rvec.npy")
 tvec = np.load(f"{MATRIX_DIR}tvec.npy")
 
@@ -45,45 +45,40 @@ if not cap.isOpened():
 frame_width, frame_height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
 
-# Load rotation (R) and translation (T) matrices
-R = np.load(f"{MATRIX_DIR}R.npy")  # 3x3 rotation matrix
-T = np.load(f"{MATRIX_DIR}T.npy")  # 3x1 translation vector
 
 
-T_base_camera = np.load(f"{MATRIX_DIR}T_base_camera.npy")
+# chessboard_depth = tvec[2]
+# def estimate_chessboard_distance(image, pattern_size, square_size, camera_matrix, dist_coeffs):
+#     """
+#     Estimates the distance from the camera to a chessboard.
 
-chessboard_depth = tvec[2]
-def estimate_chessboard_distance(image, pattern_size, square_size, camera_matrix, dist_coeffs):
-    """
-    Estimates the distance from the camera to a chessboard.
+#     Args:
+#         image: The input image (grayscale or color).
+#         pattern_size: Tuple (columns, rows) of internal corners of the chessboard.
+#         square_size: The size of a chessboard square in real-world units (e.g., meters or mm).
+#         camera_matrix: The camera intrinsic matrix.
+#         dist_coeffs: The camera distortion coefficients.
 
-    Args:
-        image: The input image (grayscale or color).
-        pattern_size: Tuple (columns, rows) of internal corners of the chessboard.
-        square_size: The size of a chessboard square in real-world units (e.g., meters or mm).
-        camera_matrix: The camera intrinsic matrix.
-        dist_coeffs: The camera distortion coefficients.
+#     Returns:
+#         The estimated distance to the chessboard in the same units as square_size,
+#         or None if the chessboard is not found.
+#     """
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     ret, corners = cv2.findChessboardCorners(gray, pattern_size, None)
 
-    Returns:
-        The estimated distance to the chessboard in the same units as square_size,
-        or None if the chessboard is not found.
-    """
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    ret, corners = cv2.findChessboardCorners(gray, pattern_size, None)
+#     if ret:
+#         # Prepare object points (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+#         objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
+#         objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
+#         objp = objp * square_size
 
-    if ret:
-        # Prepare object points (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-        objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
-        objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
-        objp = objp * square_size
-
-        # Find the rotation and translation vectors.
-        ret, rvec, tvec = cv2.solvePnP(objp, corners, camera_matrix, dist_coeffs)
-        if ret:
-            # The distance is the Z component of the translation vector
-            distance = tvec[2][0]
-            return distance
-    return None
+#         # Find the rotation and translation vectors.
+#         ret, rvec, tvec = cv2.solvePnP(objp, corners, camera_matrix, dist_coeffs)
+#         if ret:
+#             # The distance is the Z component of the translation vector
+#             distance = tvec[2][0]
+#             return distance
+#     return None
 def image_to_chessboard_3D_coords(image_point, depth, camera_matrix, dist_coeffs, rvec, tvec):
     """
     Convert a 2D image point with depth into a 3D point in the chessboard's coordinate system.
@@ -137,8 +132,7 @@ def get_chessboard_root_2D(rvec, tvec, camera_matrix, dist_coeffs):
 
 K =  np.load(f"{MATRIX_DIR}camera_matrix.npy")
 
-# Example Extrinsic Matrix (Replace with actual values from calibration)
-T_base_camera = np.load(f"{MATRIX_DIR}T_base_camera.npy")
+
 # capture the first frame
 ret, frame = cap.read()
 # cv2.imshow('frame', frame)
@@ -161,7 +155,12 @@ imgpts, _ = cv2.projectPoints(axis, rvec, tvec, camera_matrix, dist_coeffs)
 
 ret, rvec, tvec = cv2.solvePnP(objp, corners, camera_matrix, dist_coeffs)
 
-distance_to_board = estimate_chessboard_distance(frame, CHESSBOARD_SIZE, SQUARE_SIZE, camera_matrix, dist_coeffs)
+# distance_to_board = estimate_chessboard_distance(frame, CHESSBOARD_SIZE, SQUARE_SIZE, camera_matrix, dist_coeffs)
+distance_to_board = tvec[2][0]  # Z component of the translation vector
+if ret:
+    print("Rotation Vector:\n", rvec)
+    print("Translation Vector:\n", tvec)
+    print("Distance to chessboard (Z): ", distance_to_board)
 if distance_to_board is not None:
     print(f"Estimated distance to chessboard: {distance_to_board:.2f} mm")
 wrist_depth = 0
