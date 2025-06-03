@@ -1,0 +1,14 @@
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.pkl
+*.db
+*.sqlite3
+*.log
+*.csv
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.gif
